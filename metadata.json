@@ -1,0 +1,6 @@
+{
+  "name": "Gerador de Processo Penal Ambiental",
+  "description": "Sistema de processamento de autos de infração ambiental (BOTC e Relatórios) com extração por IA Gemini e geração automática de Notificações em Word (.docx)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

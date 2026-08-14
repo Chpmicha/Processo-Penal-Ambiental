@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 12mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide app header, controls, tabs, modals and buttons when printing */
+  header, nav, button, .no-print, [role="tablist"] {
+    display: none !important;
+  }
+
+  /* Make printable document take clean full width without page breaks */
+  #document-a4-printable {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #document-a4-printable * {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+
