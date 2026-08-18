@@ -154,31 +154,20 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
 
       {/* A4 Document Layout Preview */}
       <div id="document-a4-printable" className="bg-white text-slate-900 p-6 sm:p-8 rounded-lg shadow-md max-w-3xl mx-auto font-sans leading-snug border border-slate-300 print:shadow-none print:border-none print:p-0 print:m-0 print:max-w-none">
-        {/* Header with PMSC Brasão Image */}
-        <div className="pb-2 mb-2 border-b border-slate-200">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 text-left">
-              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">
-                POLÍCIA MILITAR DE SANTA CATARINA
-              </p>
-              <h1 className="text-sm font-extrabold uppercase tracking-wide text-slate-900 mt-0.5">
-                2º Batalhão de Polícia Militar Ambiental
-              </h1>
-              <p className="text-[10.5px] text-slate-600 font-medium mt-0.5">
-                Avenida Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000
-              </p>
-              <p className="text-[10px] text-slate-600">
-                Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br
-              </p>
-            </div>
-            <div className="shrink-0">
-              <img
-                src="/brasao_2bpma.png"
-                alt="Brasão de Armas 2º BPMA"
-                className="h-16 w-auto object-contain drop-shadow-sm"
-              />
-            </div>
-          </div>
+        {/* Header (Text Only, No Images) */}
+        <div className="pb-2 mb-2 border-b border-slate-200 text-left">
+          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+            POLÍCIA MILITAR DE SANTA CATARINA
+          </p>
+          <h1 className="text-sm font-extrabold uppercase tracking-wide text-slate-900 mt-0.5">
+            2º Batalhão de Polícia Militar Ambiental
+          </h1>
+          <p className="text-[10.5px] text-slate-600 font-medium mt-0.5">
+            Avenida Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000
+          </p>
+          <p className="text-[10px] text-slate-600">
+            Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br
+          </p>
         </div>
 
         {/* Document Title (3 linhas antes e 3 linhas depois) */}

@@ -183,7 +183,12 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
       try {
         const parsed = await parsePdfBuffer(file.buffer);
         if (parsed && parsed.text) {
-          const cleanText = parsed.text.replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "").trim();
+          // Remove page headers and compress blank lines to save token quota
+          const cleanText = parsed.text
+            .replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "")
+            .replace(/\r\n/g, "\n")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
           if (cleanText.length > 10) {
             extractedText = cleanText;
           }
@@ -212,8 +217,15 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
       text: systemPrompt,
     });
 
-    // Models to try in order of highest availability and speed
-    const modelsToTry = ["gemini-flash-latest", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
+    // Models to try in order of availability, speed and separate quotas
+    const modelsToTry = [
+      "gemini-3.6-flash",
+      "gemini-3.7-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+    ];
     const jsonSchema = {
       type: Type.OBJECT,
       properties: {
@@ -256,13 +268,13 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
       ],
     };
 
-    // Helper for generating content with resilient fallback across models in case of 503 high demand or network spike
+    // Helper for generating content with resilient fallback across models in case of 503 high demand or 429 rate limit
     const callGeminiWithRetry = async (): Promise<any> => {
       let lastError: any = null;
       for (const modelName of modelsToTry) {
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
-            console.log(`[Gemini API] Solicitando processamento com ${modelName}...`);
+            console.log(`[Gemini API] Solicitando processamento com modelo: ${modelName} (tentativa ${attempt})...`);
             return await ai.models.generateContent({
               model: modelName,
               contents: [
@@ -279,15 +291,17 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
           } catch (err: any) {
             lastError = err;
             const status = err?.status || err?.code || "";
-            const isDemandSpike = status === 503 || status === "UNAVAILABLE" || (err?.message && err.message.includes("503"));
+            const errMsg = String(err?.message || "").toLowerCase();
+            const isRateLimit = status === 429 || errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("resource_exhausted");
+            const isDemandSpike = status === 503 || status === "UNAVAILABLE" || errMsg.includes("503") || errMsg.includes("unavailable");
             
-            if (isDemandSpike) {
-              console.log(`[Gemini API] Modelo ${modelName} com alta demanda temporária (503). Alternando para próximo modelo de contingência...`);
-              break; // Immediately move to next fallback model
+            if (isDemandSpike || isRateLimit) {
+              console.log(`[Gemini API] Modelo ${modelName} retornou ${isRateLimit ? "Limite de Requisições/Quota (429)" : "Alta Demanda (503)"}. Alternando para próximo modelo...`);
+              break; // Immediately move to next fallback model to avoid blocking
             } else {
-              console.log(`[Gemini API] Tentativa ${attempt} com ${modelName} falhou, tentando novamente...`);
+              console.log(`[Gemini API] Tentativa ${attempt} com ${modelName} falhou: ${err?.message || err}.`);
               if (attempt < 2) {
-                await new Promise((r) => setTimeout(r, 800));
+                await new Promise((r) => setTimeout(r, 1000));
               }
             }
           }
@@ -334,8 +348,13 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
     });
   } catch (error: any) {
     console.error("Erro na extração via Gemini:", error);
+    const errText = String(error?.message || "");
+    let userMsg = "Falha no processamento com IA: " + errText;
+    if (errText.includes("429") || errText.includes("quota") || errText.includes("RESOURCE_EXHAUSTED")) {
+      userMsg = "Limite de requisições por minuto da API atingido temporariamente. Aguarde 30 segundos e tente novamente.";
+    }
     return res.status(500).json({
-      error: "Falha no processamento com IA: " + (error?.message || "Erro interno"),
+      error: userMsg,
     });
   }
 });
@@ -391,24 +410,12 @@ function replaceDocxXmlPlaceholders(xmlString: string, data: Record<string, stri
   return updatedXml;
 }
 
-// Generate base DOCX XML template matching "Relatório - MODELO.PDF" with Header Logo
+// Generate base DOCX XML template matching "Relatório - MODELO.PDF" (Text-only header, no logos)
 function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
-  let logoBase64 = "";
-  try {
-    const logoPath = path.join(process.cwd(), "public", "brasao_2bpma.png");
-    if (fs.existsSync(logoPath)) {
-      logoBase64 = fs.readFileSync(logoPath).toString("base64");
-    }
-  } catch (e) {
-    console.warn("Não foi possível carregar o brasão para o DOCX:", e);
-  }
-
-  const hasLogo = logoBase64.length > 0;
-
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
   <w:body>
-    <!-- Header Table with PMSC Title and Logo -->
+    <!-- Header with PMSC Title (Text Only) -->
     <w:tbl>
       <w:tblPr>
         <w:tblW w:w="9000" w:type="dxa"/>
@@ -423,13 +430,12 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
         </w:tblBorders>
       </w:tblPr>
       <w:tblGrid>
-        <w:gridCol w:w="6800"/>
-        <w:gridCol w:w="2200"/>
+        <w:gridCol w:w="9000"/>
       </w:tblGrid>
       <w:tr>
         <w:tc>
           <w:tcPr>
-            <w:tcW w:w="6800" w:type="dxa"/>
+            <w:tcW w:w="9000" w:type="dxa"/>
           </w:tcPr>
           <w:p>
             <w:pPr><w:spacing w:after="20"/></w:pPr>
@@ -473,49 +479,6 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
               <w:t>Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br</w:t>
             </w:r>
           </w:p>
-        </w:tc>
-        <w:tc>
-          <w:tcPr>
-            <w:tcW w:w="2200" w:type="dxa"/>
-            <w:vAlign w:val="center"/>
-          </w:tcPr>
-          ${
-            hasLogo
-              ? `<w:p>
-            <w:pPr><w:jc w:val="right"/></w:pPr>
-            <w:r>
-              <w:drawing>
-                <wp:inline distT="0" distB="0" distL="0" distR="0">
-                  <wp:extent cx="1000000" cy="1150000"/>
-                  <wp:docPr id="1" name="Brasão 2º BPMA"/>
-                  <wp:cNvGraphicFramePr/>
-                  <a:graphic>
-                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-                      <pic:pic>
-                        <pic:nvPicPr>
-                          <pic:cNvPr id="0" name="Brasão 2º BPMA"/>
-                          <pic:cNvPicPr/>
-                        </pic:nvPicPr>
-                        <pic:blipFill>
-                          <a:blip r:embed="rIdLogo"/>
-                          <a:stretch><a:fillRect/></a:stretch>
-                        </pic:blipFill>
-                        <pic:spPr>
-                          <a:xfrm>
-                            <a:off x="0" y="0"/>
-                            <a:ext cx="1000000" cy="1150000"/>
-                          </a:xfrm>
-                          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-                        </pic:spPr>
-                      </pic:pic>
-                    </a:graphicData>
-                  </a:graphic>
-                </wp:inline>
-              </w:drawing>
-            </w:r>
-          </w:p>`
-              : `<w:p><w:r><w:t></w:t></w:r></w:p>`
-          }
         </w:tc>
       </w:tr>
     </w:tbl>
@@ -806,17 +769,12 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
 
   const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  ${hasLogo ? `<Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>` : ""}
 </Relationships>`;
 
   const zip = new PizZip();
   zip.file("[Content_Types].xml", contentTypesXml);
   zip.file("_rels/.rels", relsXml);
   zip.file("word/_rels/document.xml.rels", docRelsXml);
-
-  if (hasLogo) {
-    zip.file("word/media/image1.png", Buffer.from(logoBase64, "base64"));
-  }
   
   // Replace tags in document.xml
   const renderedXml = replaceDocxXmlPlaceholders(documentXml, data);
@@ -843,19 +801,10 @@ function createDefaultPdfBuffer(data: Record<string, string>): Promise<Buffer> {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", (err) => reject(err));
 
-      const logoPath = path.join(process.cwd(), "public", "brasao_2bpma.png");
-      const hasLogo = fs.existsSync(logoPath);
       const printableWidth = 595.28 - 76; // 519.28 pt
 
-      // 1. Header layout
+      // 1. Header layout (Text only)
       const startY = 24;
-      if (hasLogo) {
-        try {
-          doc.image(logoPath, 595.28 - 38 - 48, startY - 2, { width: 48 });
-        } catch (imgErr) {
-          console.warn("Aviso ao carregar imagem no PDFKit:", imgErr);
-        }
-      }
 
       doc.font("Helvetica-Bold").fontSize(7).fillColor("#64748b").text("POLÍCIA MILITAR DE SANTA CATARINA", 38, startY);
       doc.font("Helvetica-Bold").fontSize(10.5).fillColor("#0f172a").text("2º Batalhão de Polícia Militar Ambiental", 38, startY + 10);
@@ -876,22 +825,46 @@ function createDefaultPdfBuffer(data: Record<string, string>): Promise<Buffer> {
 
       // 3. Metadata 3-Column Row (3 linhas após o título)
       const metaY = titleY + 14 + 26;
-      const colWidth = printableWidth / 3;
+      const col1X = 38;
+      const col1W = 155;
+      const col2X = col1X + col1W + 10;
+      const col2W = 195;
+      const col3X = col2X + col2W + 10;
+      const col3W = printableWidth - (col1W + col2W + 20);
 
       // Col 1: Autor dos Fatos
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Autor dos Fatos: ", 38, metaY, { continued: true });
-      doc.font("Helvetica-Bold").fillColor("#0f172a").text(data.NOME_INFRATOR || "Não informado");
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Autor dos Fatos: ", col1X, metaY, {
+        continued: true,
+        width: col1W,
+      });
+      doc.font("Helvetica-Bold").fillColor("#0f172a").text(data.NOME_INFRATOR || "Não informado", {
+        width: col1W,
+      });
+      const col1Bottom = doc.y;
 
       // Col 2: Tipificação Penal
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Tipificação Penal: ", 38 + colWidth, metaY, { continued: true });
-      doc.font("Helvetica").fillColor("#0f172a").text(data.LEI_ENQUADRAMENTO || "Não informado");
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Tipificação Penal: ", col2X, metaY, {
+        continued: true,
+        width: col2W,
+      });
+      doc.font("Helvetica").fillColor("#0f172a").text(data.LEI_ENQUADRAMENTO || "Não informado", {
+        width: col2W,
+      });
+      const col2Bottom = doc.y;
 
       // Col 3: Auto de Infração Ambiental
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Auto de Infração: ", 38 + colWidth * 2, metaY, { continued: true });
-      doc.font("Helvetica").fillColor("#0f172a").text(`AIA n. ${data.AIA_NUMERO || "---"}`);
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Auto de Infração: ", col3X, metaY, {
+        continued: true,
+        width: col3W,
+      });
+      doc.font("Helvetica").fillColor("#0f172a").text(`AIA n. ${data.AIA_NUMERO || "---"}`, {
+        width: col3W,
+      });
+      const col3Bottom = doc.y;
 
       // 4. Highlight Box (Origem, Data/Hora, Local, Coordenadas, Atendentes)
-      const boxY = metaY + 14;
+      const maxMetaBottom = Math.max(col1Bottom, col2Bottom, col3Bottom);
+      const boxY = Math.max(metaY + 14, maxMetaBottom + 6);
       const boxHeight = 60;
       doc.roundedRect(38, boxY, printableWidth, boxHeight, 4).fillAndStroke("#f8fafc", "#cbd5e1");
 

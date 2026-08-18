@@ -5,14 +5,17 @@ interface PdfUploaderProps {
   onExtract: (pdfFiles: File[]) => Promise<void>;
   onShowToast?: (message: string, type?: "success" | "error") => void;
   isProcessing: boolean;
+  selectedPdfs: File[];
+  setSelectedPdfs: React.Dispatch<React.SetStateAction<File[]>>;
 }
 
 export const PdfUploader: React.FC<PdfUploaderProps> = ({
   onExtract,
   onShowToast,
   isProcessing,
+  selectedPdfs,
+  setSelectedPdfs,
 }) => {
-  const [selectedPdfs, setSelectedPdfs] = useState<File[]>([]);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const handlePdfSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

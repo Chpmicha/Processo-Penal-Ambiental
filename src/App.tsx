@@ -7,29 +7,32 @@ import { PythonScriptModal } from "./components/PythonScriptModal";
 import { ExtractedData } from "./types";
 import { CheckCircle, AlertCircle, UploadCloud, Edit3, FileText, Code2 } from "lucide-react";
 
+const INITIAL_DATA: ExtractedData = {
+  TIPO_DOCUMENTO: "NOTIFICAÇÃO DE INFRAÇÃO PENAL AMBIENTAL",
+  NOME_INFRATOR: "",
+  LEI_ENQUADRAMENTO: "",
+  AIA_NUMERO: "",
+  NUMERO_SADE: "",
+  DATA_FATO: "",
+  HORA_FATO: "",
+  ENDEREÇO: "",
+  COORDENADAS_UTM: "",
+  AGENTES_ATENDENTES: "",
+  RESUMO_RELATORIO_FISCALIZACAO: "",
+  PROCESSO_GAIA: "",
+  PROCESSO_SGPE: "",
+  TE_NUMERO: "",
+  DESCRICAO_TE: "",
+  BO_NUMERO: "",
+  DATA_ATUAL: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
+  AUTORIDADE_NOME: "Andréia Cristina Fergitz",
+  AUTORIDADE_CARGO: "Tenente Coronel PM - Comandante do 2ºBPMA",
+};
+
 export default function App() {
-  const [data, setData] = useState<ExtractedData>({
-    TIPO_DOCUMENTO: "NOTIFICAÇÃO DE INFRAÇÃO PENAL AMBIENTAL",
-    NOME_INFRATOR: "",
-    LEI_ENQUADRAMENTO: "",
-    AIA_NUMERO: "",
-    NUMERO_SADE: "",
-    DATA_FATO: "",
-    HORA_FATO: "",
-    ENDEREÇO: "",
-    COORDENADAS_UTM: "",
-    AGENTES_ATENDENTES: "",
-    RESUMO_RELATORIO_FISCALIZACAO: "",
-    PROCESSO_GAIA: "",
-    PROCESSO_SGPE: "",
-    TE_NUMERO: "",
-    DESCRICAO_TE: "",
-    BO_NUMERO: "",
-    DATA_ATUAL: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
-    AUTORIDADE_NOME: "Andréia Cristina Fergitz",
-    AUTORIDADE_CARGO: "Tenente Coronel PM - Comandante do 2ºBPMA",
-  });
-  const [hasExtracted, setHasExtracted] = useState<boolean>(true);
+  const [data, setData] = useState<ExtractedData>(INITIAL_DATA);
+  const [selectedPdfs, setSelectedPdfs] = useState<File[]>([]);
+  const [hasExtracted, setHasExtracted] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"tags" | "preview" | "python">("preview");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGeneratingDocx, setIsGeneratingDocx] = useState(false);
@@ -39,6 +42,16 @@ export default function App() {
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleReset = () => {
+    setData({
+      ...INITIAL_DATA,
+      DATA_ATUAL: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
+    });
+    setSelectedPdfs([]);
+    setHasExtracted(false);
+    showToast("Dados e anexos limpos com sucesso! Pronto para processar um novo caso.");
   };
 
   const handleExtractPdfs = async (pdfFiles: File[]) => {
@@ -158,6 +171,7 @@ export default function App() {
       <Header
         onDownloadDocx={handleDownloadDocx}
         onDownloadPython={() => setShowPythonModal(true)}
+        onReset={handleReset}
         isGeneratingDocx={isGeneratingDocx}
         hasExtracted={hasExtracted}
       />
@@ -169,6 +183,8 @@ export default function App() {
           onExtract={handleExtractPdfs}
           onShowToast={showToast}
           isProcessing={isProcessing}
+          selectedPdfs={selectedPdfs}
+          setSelectedPdfs={setSelectedPdfs}
         />
 
         {/* View Switcher / Visual Header */}
