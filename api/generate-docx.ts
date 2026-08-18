@@ -83,8 +83,8 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
   } else {
     anexosList = [
       `1. Boletim de Ocorrência nº ${data.BO_NUMERO || "---"};`,
-      `2. Auto de Infração Ambiental n. ${data.AIA_NUMERO || "---"};`,
-      `3. Termo de Embargo/Suspensão n. ${data.TE_NUMERO || "---"};`,
+      `2. Auto(s) de Infração Ambiental n. ${data.AIA_NUMERO || "---"};`,
+      `3. Termo(s) de Embargo/Suspensão n. ${data.TE_NUMERO || "---"};`,
       `4. Relatório de Fiscalização;`,
       `5. Relatório fotográfico, mapas e listas de coordenadas;`,
       `6. Cópias dos documentos pessoais, contrato social e registro do imóvel rural.`
@@ -188,12 +188,12 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
     </w:p>
     <w:p>
       <w:pPr><w:ind w:left="360"/><w:spacing w:after="80"/></w:pPr>
-      <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t xml:space="preserve">• Auto de Infração Ambiental: </w:t></w:r>
+      <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t xml:space="preserve">• Auto(s) de Infração Ambiental: </w:t></w:r>
       <w:r><w:rPr><w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t>{{ AIA_NUMERO }}</w:t></w:r>
     </w:p>
     <w:p>
       <w:pPr><w:ind w:left="360"/><w:spacing w:after="240"/></w:pPr>
-      <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t xml:space="preserve">• Embargo/Suspensão: </w:t></w:r>
+      <w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t xml:space="preserve">• Embargo(s)/Suspensão: </w:t></w:r>
       <w:r><w:rPr><w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t>{{ TE_NUMERO }} ({{ DESCRICAO_TE }})</w:t></w:r>
     </w:p>
 

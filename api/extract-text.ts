@@ -113,39 +113,45 @@ export default async function handler(req: any, res: any) {
     }
 
     const systemPrompt = `
-Você é um especialista em processamento de documentos ambientais policiais e fiscais (BOTC - Boletim de Ocorrência / Termo Circunstanciado e PAFA / Relatório de Fiscalização).
+Você é um especialista em processamento de documentos ambientais policiais e fiscais (BOTC - Boletim de Ocorrência / Termo Circunstanciado e PAFA / Relatório de Fiscalização) da Polícia Militar Ambiental de Santa Catarina (2º BPMA).
 
-Analise os documentos PDF fornecidos e extraia estritamente as 17 tags no formato JSON.
+Analise todos os documentos PDF fornecidos (podendo incluir 1 ou mais PAFAs e Boletins de Ocorrência) e extraia estritamente as 17 tags no formato JSON.
 
 REGRAS OBRIGATÓRIAS DE NEGÓCIO:
 
 1. {{ LEI_ENQUADRAMENTO }}:
    - REGRA DE PREFERÊNCIA CRÍTICA E OBRIGATÓRIA: Busque estritamente a TIPIFICAÇÃO DE CRIME AMBIENTAL com base na **Lei Federal nº 9.605/1998** (Lei dos Crimes Ambientais).
-   - Formato obrigatório: "Art. [Número] da Lei Federal nº 9.605/1998" (ex: "Art. 60 da Lei Federal nº 9.605/1998", "Art. 38-A da Lei Federal nº 9.605/1998", "Art. 64 da Lei Federal nº 9.605/1998").
+   - Formato obrigatório para 1 crime: "Art. [Número] da Lei Federal nº 9.605/1998" (ex: "Art. 60 da Lei Federal nº 9.605/1998", "Art. 38-A da Lei Federal nº 9.605/1998").
+   - MÚLTIPLOS CRIMES / MÚLTIPLOS PAFAS: Se houver mais de uma tipificação penal identificada nos documentos, concatene todos os artigos de forma coesa (ex: "Art. 38-A e Art. 60 da Lei Federal nº 9.605/1998" ou "Art. 38, Art. 48 e Art. 60 da Lei Federal nº 9.605/1998").
    - IMPORTANTE: Nos relatórios de fiscalização ou autos de infração é comum constar o enquadramento administrativo do Decreto Federal nº 6.514/2008. IGNORE a citação do Decreto nº 6.514/2008 ou de decretos estaduais para esta tag e extraia/identifique SEMPRE o artigo criminal equivalente correspondente da **Lei Federal nº 9.605/1998**.
 
 2. {{ TIPO_DOCUMENTO }}:
-   - Verifique a pena máxima cominada no artigo do crime ambiental da **Lei Federal nº 9.605/1998** citado:
-     * Se a pena máxima cominada na Lei nº 9.605/1998 for <= 2 anos (ex: Art. 48, Art. 60, Art. 64) -> Preencha com: "TERMO CIRCUNSTANCIADO"
-     * Se a pena máxima cominada na Lei nº 9.605/1998 for > 2 anos (ex: Art. 38, Art. 38-A, Art. 50, Art. 54) -> Preencha com: "NOTIFICAÇÃO DE INFRAÇÃO PENAL AMBIENTAL"
+   - Regra de determinação do rito processual penal:
+     * Se houver apenas 1 crime e a pena máxima cominada na Lei nº 9.605/1998 for <= 2 anos (ex: Art. 48, Art. 60, Art. 64 isolados) -> Preencha com: "TERMO CIRCUNSTANCIADO"
+     * Se houver concurso de crimes (múltiplas infrações) OU se qualquer um dos crimes tiver pena máxima cominada > 2 anos (ex: Art. 38, Art. 38-A, Art. 50, Art. 54) -> Preencha com: "NOTIFICAÇÃO DE INFRAÇÃO PENAL AMBIENTAL"
 
-3. {{ RESUMO_RELATORIO_FISCALIZACAO }}:
-   - Elabore um parágrafo síntese focado estritamente em AUTORIA e MATERIALIDADE extraídos do Relatório de Fiscalização/PAFA.
-   - Detalhe a conduta praticada, área afetada em m² ou hectares, se há intervenção em APP ou vegetação nativa, método de constatação (drone/VANT, satélite, vistoria in loco) e a data da intervenção.
+3. {{ AIA_NUMERO }}:
+   - Se houver 1 Auto de Infração Ambiental: extraia o número completo (ex: "17585-E").
+   - MÚLTIPLOS AUTOS DE INFRAÇÃO (mesmo autuado com 2 ou mais AIAs/PAFAs): concatene todos os números de forma legível e elegante (ex: "17585-E e 17586-E" ou "17585-E, 17586-E e 17587-E").
 
-4. DEMAIS TAGS OBRIGATÓRIAS:
+4. {{ TE_NUMERO }} e {{ DESCRICAO_TE }}:
+   - TE_NUMERO: Se houver 1 Termo de Embargo/Suspensão, extraia o número (ex: "1234-E"). Se houver múltiplos Termos de Embargo, concatene-os (ex: "1234-E e 1235-E"). Se não houver embargo nos autos, preencha com "Não aplicado".
+   - DESCRICAO_TE: Descrição sintetizada do objeto do embargo. Se houver múltiplos embargos, resuma o objeto de cada um (ex: "1,5 ha de vegetação nativa no TE 1234-E e 0,8 ha de APP no TE 1235-E").
+
+5. {{ RESUMO_RELATORIO_FISCALIZACAO }}:
+   - Elabore um parágrafo síntese focado estritamente em AUTORIA e MATERIALIDADE extraídos de todos os Relatórios de Fiscalização/PAFAs fornecidos.
+   - Integre os fatos de todas as fiscalizações em uma narrativa única, coesa e objetiva, detalhando a conduta praticada, áreas totais afetadas em m² ou hectares, se há intervenção em APP ou vegetação nativa, método de constatação (drone/VANT, satélite, vistoria in loco) e as datas das constatações.
+
+6. DEMAIS TAGS OBRIGATÓRIAS:
    - NOME_INFRATOR: Nome completo do autuado/investigado.
-   - AIA_NUMERO: Número do Auto de Infração Ambiental (ex: "17585-E").
-   - NUMERO_SADE: Protocolo/Número SADE.
-   - DATA_FATO: Data da constatação no formato DD/MM/AAAA.
+   - NUMERO_SADE: Protocolo/Número SADE (se houver mais de um, concatene).
+   - DATA_FATO: Data da constatação no formato DD/MM/AAAA (se houver datas distintas, indique-as).
    - HORA_FATO: Horário no formato HH:MM.
    - ENDEREÇO: Endereço completo com município e UF.
-   - COORDENADAS_UTM: Coordenadas geográficas ou UTM (ex: "22J 329.383m E, 7.016.470m N").
+   - COORDENADAS_UTM: Coordenadas geográficas ou UTM.
    - AGENTES_ATENDENTES: Nome(s) e posto/graduação dos agentes fiscalizadores.
-   - PROCESSO_GAIA: Número do processo no sistema GAIA.
-   - PROCESSO_SGPE: Número do processo no SGP-e.
-   - TE_NUMERO: Número do Termo de Embargo.
-   - DESCRICAO_TE: Descrição sintetizada do objeto do embargo.
+   - PROCESSO_GAIA: Número do(s) processo(s) no sistema GAIA (concatene se houver mais de um).
+   - PROCESSO_SGPE: Número do(s) processo(s) no SGP-e (concatene se houver mais de um).
    - BO_NUMERO: Número completo do BO/BOTC.
    - DATA_ATUAL: Data de geração do documento por extenso (ex: "13 de agosto de 2026").
 

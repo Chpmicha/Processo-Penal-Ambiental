@@ -120,12 +120,13 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
         <div className="space-y-1">
           <label className="text-slate-700 font-bold flex items-center justify-between">
             <span>&#123;&#123; LEI_ENQUADRAMENTO &#125;&#123;</span>
-            <span className="text-[10px] text-slate-500 font-normal">Artigo / Lei</span>
+            <span className="text-[10px] text-slate-500 font-normal">Artigo(s) da Lei 9.605/98</span>
           </label>
           <input
             type="text"
             value={data.LEI_ENQUADRAMENTO}
             onChange={(e) => handleChange("LEI_ENQUADRAMENTO", e.target.value)}
+            placeholder="Ex: Art. 38-A e Art. 60 da Lei Federal nº 9.605/1998"
             className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-medium focus:bg-white focus:border-blue-600 focus:outline-none"
           />
         </div>
@@ -134,12 +135,13 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
         <div className="space-y-1">
           <label className="text-slate-700 font-bold flex items-center justify-between">
             <span>&#123;&#123; AIA_NUMERO &#125;&#123;</span>
-            <span className="text-[10px] text-slate-500 font-normal">Auto de Infração</span>
+            <span className="text-[10px] text-slate-500 font-normal">Auto(s) de Infração</span>
           </label>
           <input
             type="text"
             value={data.AIA_NUMERO}
             onChange={(e) => handleChange("AIA_NUMERO", e.target.value)}
+            placeholder="Ex: 17585-E ou 17585-E e 17586-E"
             className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-medium focus:bg-white focus:border-blue-600 focus:outline-none"
           />
         </div>
@@ -268,12 +270,13 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
         <div className="space-y-1">
           <label className="text-slate-700 font-bold flex items-center justify-between">
             <span>&#123;&#123; TE_NUMERO &#125;&#123;</span>
-            <span className="text-[10px] text-slate-500 font-normal">Termo de Embargo</span>
+            <span className="text-[10px] text-slate-500 font-normal">Termo(s) de Embargo</span>
           </label>
           <input
             type="text"
             value={data.TE_NUMERO}
             onChange={(e) => handleChange("TE_NUMERO", e.target.value)}
+            placeholder="Ex: 1234-E ou 1234-E e 1235-E"
             className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-medium focus:bg-white focus:border-blue-600 focus:outline-none"
           />
         </div>
@@ -294,12 +297,13 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
         <div className="space-y-1 md:col-span-2">
           <label className="text-slate-700 font-bold flex items-center justify-between">
             <span>&#123;&#123; DESCRICAO_TE &#125;&#123;</span>
-            <span className="text-[10px] text-slate-500 font-normal">Objeto do Embargo</span>
+            <span className="text-[10px] text-slate-500 font-normal">Objeto do(s) Embargo(s)</span>
           </label>
           <input
             type="text"
             value={data.DESCRICAO_TE}
             onChange={(e) => handleChange("DESCRICAO_TE", e.target.value)}
+            placeholder="Ex: 1,5 ha de vegetação nativa no TE 1234-E e 0,8 ha de APP no TE 1235-E"
             className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-medium focus:bg-white focus:border-blue-600 focus:outline-none"
           />
         </div>

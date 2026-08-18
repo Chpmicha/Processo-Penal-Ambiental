@@ -91,12 +91,18 @@ export function generateNotificationPdf(data: ExtractedData): void {
   // Column 3
   doc.setFont("helvetica", "bold");
   doc.setTextColor(51, 65, 85);
-  doc.text("Auto de Infração:", col3X, y);
+  doc.text("Auto(s) de Infração:", col3X, y);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(15, 23, 42);
-  doc.text(`AIA n. ${data.AIA_NUMERO || "---"}`, col3X, y + 3.8);
+  const aiaText = data.AIA_NUMERO
+    ? data.AIA_NUMERO.toLowerCase().includes("aia")
+      ? data.AIA_NUMERO
+      : `AIA n. ${data.AIA_NUMERO}`
+    : "---";
+  const aiaLines = doc.splitTextToSize(aiaText, col3W - 4);
+  doc.text(aiaLines, col3X, y + 3.8);
 
-  const maxMetaLines = Math.max(autorLines.length, tipLines.length, 1);
+  const maxMetaLines = Math.max(autorLines.length, tipLines.length, aiaLines.length, 1);
   y += 4 + maxMetaLines * 3.8 + 4;
 
   // 4. Highlight Box (Origem, Data, Local, Coords, Atendentes)
@@ -170,15 +176,15 @@ export function generateNotificationPdf(data: ExtractedData): void {
   y += 1.5;
 
   doc.setFont("helvetica", "bold");
-  doc.text(`• Auto de Infração Ambiental: `, margin + 3, y);
-  const aiaW = doc.getTextWidth("• Auto de Infração Ambiental: ");
+  doc.text(`• Auto(s) de Infração Ambiental: `, margin + 3, y);
+  const aiaW = doc.getTextWidth("• Auto(s) de Infração Ambiental: ");
   doc.setFont("helvetica", "normal");
   doc.text(data.AIA_NUMERO || "---", margin + 3 + aiaW, y);
   y += 3.6;
 
   doc.setFont("helvetica", "bold");
-  doc.text(`• Embargo/Suspensão: `, margin + 3, y);
-  const teW = doc.getTextWidth("• Embargo/Suspensão: ");
+  doc.text(`• Embargo(s)/Suspensão: `, margin + 3, y);
+  const teW = doc.getTextWidth("• Embargo(s)/Suspensão: ");
   doc.setFont("helvetica", "normal");
   doc.text(`${data.TE_NUMERO || "---"} (${data.DESCRICAO_TE || "---"})`, margin + 3 + teW, y);
   y += 5.5;
@@ -202,8 +208,8 @@ export function generateNotificationPdf(data: ExtractedData): void {
   } else {
     anexosList = [
       `1. Boletim de Ocorrência nº ${data.BO_NUMERO || "---"};`,
-      `2. Auto de Infração Ambiental n. ${data.AIA_NUMERO || "---"};`,
-      `3. Termo de Embargo/Suspensão n. ${data.TE_NUMERO || "---"};`,
+      `2. Auto(s) de Infração Ambiental n. ${data.AIA_NUMERO || "---"};`,
+      `3. Termo(s) de Embargo/Suspensão n. ${data.TE_NUMERO || "---"};`,
       "4. Relatório de Fiscalização;",
       "5. Relatório fotográfico, mapas e listas de coordenadas;",
       "6. Cópias dos documentos pessoais, contrato social e registro do imóvel rural.",

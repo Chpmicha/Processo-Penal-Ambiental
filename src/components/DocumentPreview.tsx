@@ -131,8 +131,14 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
             <span className="text-slate-900">{data.LEI_ENQUADRAMENTO || "{{ LEI_ENQUADRAMENTO }}"}</span>
           </div>
           <div>
-            <span className="font-bold text-slate-700">Auto de Infração:</span>{" "}
-            <span className="text-slate-900">AIA n. {data.AIA_NUMERO || "{{ AIA_NUMERO }}"}</span>
+            <span className="font-bold text-slate-700">Auto(s) de Infração:</span>{" "}
+            <span className="text-slate-900">
+              {data.AIA_NUMERO
+                ? data.AIA_NUMERO.toLowerCase().includes("aia")
+                  ? data.AIA_NUMERO
+                  : `AIA n. ${data.AIA_NUMERO}`
+                : "{{ AIA_NUMERO }}"}
+            </span>
           </div>
         </div>
 
@@ -178,10 +184,10 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
           </p>
           <ul className="text-[10.5px] text-slate-800 space-y-1 pl-4 list-disc font-medium">
             <li>
-              <strong>Auto de Infração Ambiental:</strong> {data.AIA_NUMERO || "{{ AIA_NUMERO }}"}
+              <strong>Auto(s) de Infração Ambiental:</strong> {data.AIA_NUMERO || "{{ AIA_NUMERO }}"}
             </li>
             <li>
-              <strong>Embargo/Suspensão:</strong> {data.TE_NUMERO || "{{ TE_NUMERO }}"} ({data.DESCRICAO_TE || "{{ DESCRICAO_TE }}"})
+              <strong>Embargo(s)/Suspensão:</strong> {data.TE_NUMERO || "{{ TE_NUMERO }}"} ({data.DESCRICAO_TE || "{{ DESCRICAO_TE }}"})
             </li>
           </ul>
         </div>
@@ -206,8 +212,8 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
             ) : (
               <ol className="space-y-0.5 list-decimal pl-3">
                 <li>Boletim de Ocorrência nº {data.BO_NUMERO || "{{ BO_NUMERO }}"};</li>
-                <li>Auto de Infração Ambiental n. {data.AIA_NUMERO || "{{ AIA_NUMERO }}"};</li>
-                <li>Termo de Embargo/Suspensão n. {data.TE_NUMERO || "{{ TE_NUMERO }}"};</li>
+                <li>Auto(s) de Infração Ambiental n. {data.AIA_NUMERO || "{{ AIA_NUMERO }}"};</li>
+                <li>Termo(s) de Embargo/Suspensão n. {data.TE_NUMERO || "{{ TE_NUMERO }}"};</li>
                 <li>Relatório de Fiscalização;</li>
                 <li>Relatório fotográfico, mapas e listas de coordenadas;</li>
                 <li>Cópias dos documentos pessoais, contrato social e registro do imóvel rural.</li>
