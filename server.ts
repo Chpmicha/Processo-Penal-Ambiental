@@ -68,8 +68,8 @@ const DEFAULT_EMPTY_DATA = {
   AUTORIDADE_CARGO: "Tenente Coronel PM - Comandante do 2ºBPMA"
 };
 
-// API Endpoint 1: Health check
-app.get("/api/sample-data", (req, res) => {
+// API Endpoint 1: Health & sample data
+app.get(["/api/sample-data", "/sample-data", "/api/health", "/health"], (req, res) => {
   res.json({ status: "ok", data: DEFAULT_EMPTY_DATA });
 });
 
@@ -261,7 +261,7 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
 };
 
 // API Endpoint 2A: Ultra-lightweight JSON text extract (Bypasses Vercel 4.5MB 413 limit)
-app.post("/api/extract-text", async (req, res) => {
+app.post(["/api/extract-text", "/extract-text"], async (req, res) => {
   try {
     const { text, documents } = req.body;
     if (!text && (!documents || documents.length === 0)) {
@@ -288,7 +288,7 @@ app.post("/api/extract-text", async (req, res) => {
 });
 
 // API Endpoint 2B: Multipart extract fallback
-app.post("/api/extract", (req, res, next) => {
+app.post(["/api/extract", "/extract"], (req, res, next) => {
   if (req.is("application/json") || req.body?.text) {
     return next();
   }
@@ -770,7 +770,7 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
 }
 
 // API Endpoint 3: Generate filled DOCX file
-app.post("/api/generate-docx", async (req, res) => {
+app.post(["/api/generate-docx", "/generate-docx"], async (req, res) => {
   try {
     const rawData = req.body.data;
     const tagData: Record<string, string> = typeof rawData === "string" ? JSON.parse(rawData) : (rawData || DEFAULT_EMPTY_DATA);
@@ -790,7 +790,7 @@ app.post("/api/generate-docx", async (req, res) => {
 });
 
 // API Endpoint 4: Generate executable Python script string
-app.post("/api/generate-python-script", (req, res) => {
+app.post(["/api/generate-python-script", "/generate-python-script"], (req, res) => {
   const data = req.body.data || DEFAULT_EMPTY_DATA;
   const jsonFormatted = JSON.stringify(data, null, 4);
 
@@ -935,7 +935,14 @@ async function startServer() {
 
 export default app;
 
-if (!process.env.VERCEL) {
+const isServerless = !!(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.NOW_REGION ||
+  process.env.LAMBDA_TASK_ROOT
+);
+
+if (!isServerless) {
   startServer();
 }
 
