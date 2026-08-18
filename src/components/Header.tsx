@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <img
-            src="/assets/images/logo_2.png"
+            src="https://i.postimg.cc/T3nnCR92/logo-azul.png"
             alt="Brasão 2º BPMA"
             className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-xl shrink-0 drop-shadow-xl hover:scale-105 transition-transform duration-200"
             referrerPolicy="no-referrer"
