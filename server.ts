@@ -6,52 +6,6 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const pdfParseModule = require("pdf-parse");
-
-const parsePdfBuffer = async (buffer: Buffer): Promise<{ text: string }> => {
-  try {
-    if (!buffer || buffer.length === 0) return { text: "" };
-    
-    // 1. Try v2 style PDFParse class
-    let PDFParseClass = pdfParseModule?.PDFParse;
-    if (!PDFParseClass && pdfParseModule?.default) {
-      PDFParseClass = pdfParseModule.default.PDFParse || pdfParseModule.default;
-    }
-
-    if (PDFParseClass && typeof PDFParseClass === "function") {
-      try {
-        const parser = new PDFParseClass({ data: new Uint8Array(buffer) });
-        if (typeof parser.getText === "function") {
-          const textResult = await parser.getText();
-          const textStr = typeof textResult === "string" ? textResult : (textResult?.text || "");
-          if (textStr && textStr.trim().length > 10) {
-            return { text: textStr.trim() };
-          }
-        }
-      } catch (innerErr) {
-        console.warn("[pdf-parse] Aviso ao extrair texto com PDFParse:", innerErr);
-      }
-    }
-
-    // 2. Try v1 style function as fallback
-    if (typeof pdfParseModule === "function") {
-      try {
-        const res = await (pdfParseModule as any)(buffer);
-        if (res && res.text && typeof res.text === "string" && res.text.trim().length > 10) {
-          return { text: res.text.trim() };
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-  } catch (err) {
-    console.warn("[pdf-parse] Erro ao extrair texto do PDF:", err);
-  }
-  return { text: "" };
-};
 
 dotenv.config();
 
@@ -376,35 +330,12 @@ app.post("/api/extract", (req, res, next) => {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      let extractedText = "";
-      try {
-        const parsed = await parsePdfBuffer(file.buffer);
-        if (parsed && parsed.text) {
-          const cleanText = parsed.text
-            .replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "")
-            .replace(/\r\n/g, "\n")
-            .replace(/\n{3,}/g, "\n\n")
-            .trim();
-          if (cleanText.length > 10) {
-            extractedText = cleanText;
-          }
-        }
-      } catch (err) {
-        console.warn(`[pdf-parse] Não foi possível extrair texto puro do arquivo ${file.originalname}:`, err);
-      }
-
-      if (extractedText) {
-        contentsParts.push({
-          text: `\n=== CONTEÚDO DO DOCUMENTO PDF #${i + 1} (${file.originalname}) ===\n${extractedText}\n`
-        });
-      } else {
-        contentsParts.push({
-          inlineData: {
-            mimeType: "application/pdf",
-            data: file.buffer.toString("base64"),
-          },
-        });
-      }
+      contentsParts.push({
+        inlineData: {
+          mimeType: "application/pdf",
+          data: file.buffer.toString("base64"),
+        },
+      });
     }
 
     return await executeGeminiExtraction(contentsParts, res);
