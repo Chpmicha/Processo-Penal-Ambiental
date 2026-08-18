@@ -170,10 +170,10 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
     });
 
     const modelsToTry = [
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-2.5-pro",
+      "gemini-3.7-flash",
+      "gemini-3.6-flash",
+      "gemini-flash-latest",
+      "gemini-3.1-flash-lite",
     ];
 
     const jsonSchema = {
