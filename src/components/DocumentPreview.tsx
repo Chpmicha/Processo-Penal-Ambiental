@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { ExtractedData } from "../types";
 import { FileText, Printer, Download, Loader2, Check, Info } from "lucide-react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface DocumentPreviewProps {
   data: ExtractedData;
@@ -16,82 +18,82 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
     setPdfSuccess(false);
 
     try {
-      const response = await fetch("/api/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro ao gerar PDF (código ${response.status})`);
+      const docElement = document.getElementById("document-a4-printable");
+      if (!docElement) {
+        throw new Error("Elemento do documento não encontrado");
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Notificacao_${(data.NOME_INFRATOR || "Processo").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // High quality render via html2canvas
+      const canvas = await html2canvas(docElement, {
+        scale: 2.5,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 1024,
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      const margin = 10;
+      const printableW = pageWidth - margin * 2;
+      const printableH = (canvas.height * printableW) / canvas.width;
+
+      pdf.addImage(imgData, "JPEG", margin, margin, printableW, printableH, undefined, "FAST");
+      
+      const filename = `Notificacao_${(data.NOME_INFRATOR || "Processo").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+      pdf.save(filename);
 
       setPdfSuccess(true);
       setTimeout(() => setPdfSuccess(false), 3500);
     } catch (error: any) {
-      console.error("Erro ao gerar PDF:", error);
-      alert("Não foi possível gerar o PDF: " + (error?.message || "Erro desconhecido"));
+      console.warn("Tentando fallback de PDF via servidor:", error);
+      try {
+        const response = await fetch("/api/generate-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro no servidor (código ${response.status})`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Notificacao_${(data.NOME_INFRATOR || "Processo").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        setPdfSuccess(true);
+        setTimeout(() => setPdfSuccess(false), 3500);
+      } catch (fallbackErr: any) {
+        console.error("Erro ao gerar PDF:", fallbackErr);
+        alert("Não foi possível gerar o PDF: " + (fallbackErr?.message || "Erro desconhecido"));
+      }
     } finally {
       setIsGeneratingPdf(false);
     }
   };
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     setIsPrinting(true);
-    try {
-      const response = await fetch("/api/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro na geração do documento para impressão");
-      }
-
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-
-      // Create an invisible iframe to trigger PDF print dialog
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "none";
-      iframe.src = blobUrl;
-      document.body.appendChild(iframe);
-
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } catch (e) {
-          // If direct iframe print is restricted by browser security, open in new tab
-          window.open(blobUrl, "_blank");
-        }
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-          window.URL.revokeObjectURL(blobUrl);
-        }, 60000);
-      };
-    } catch (e) {
-      // Fallback to browser window print
+    // Directly trigger window.print with @media print rules isolating #document-a4-printable
+    setTimeout(() => {
       window.print();
-    } finally {
       setIsPrinting(false);
-    }
+    }, 100);
   };
 
   return (

@@ -5,6 +5,7 @@ import { TagEditorForm } from "./components/TagEditorForm";
 import { DocumentPreview } from "./components/DocumentPreview";
 import { PythonScriptModal } from "./components/PythonScriptModal";
 import { ExtractedData } from "./types";
+import { extractTextFromPdfFile } from "./utils/pdfExtractor";
 import { CheckCircle, AlertCircle, UploadCloud, Edit3, FileText, Code2 } from "lucide-react";
 
 const INITIAL_DATA: ExtractedData = {
@@ -57,18 +58,44 @@ export default function App() {
   const handleExtractPdfs = async (pdfFiles: File[]) => {
     setIsProcessing(true);
     try {
-      const formData = new FormData();
-      pdfFiles.forEach((file) => formData.append("pdfs", file));
+      // 1. Extração de texto ultra-leve no navegador (elimina o erro 413 do Vercel)
+      const extractedDocs: { name: string; text: string }[] = [];
+      for (const file of pdfFiles) {
+        const text = await extractTextFromPdfFile(file);
+        if (text && text.trim().length > 20) {
+          extractedDocs.push({ name: file.name, text });
+        }
+      }
 
-      const response = await fetch("/api/extract", {
-        method: "POST",
-        body: formData,
-      });
+      let response: Response;
+
+      if (extractedDocs.length > 0) {
+        // Envia o texto extraído como JSON puro (~20KB em vez de 20MB)
+        response = await fetch("/api/extract-text", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ documents: extractedDocs }),
+        });
+      } else {
+        // Fallback para envio binário de arquivo
+        const formData = new FormData();
+        pdfFiles.forEach((file) => formData.append("pdfs", file));
+
+        response = await fetch("/api/extract", {
+          method: "POST",
+          body: formData,
+        });
+      }
 
       let result: any = null;
       try {
         result = await response.json();
       } catch {
+        if (response.status === 413) {
+          throw new Error("Tamanho dos arquivos excede o limite serverless. Tente carregar PDFs com texto selecionável ou com menos páginas com fotos.");
+        }
         throw new Error(`Servidor inacessível ou tempo limite excedido (código ${response.status}).`);
       }
 
@@ -82,7 +109,7 @@ export default function App() {
     } catch (err: any) {
       const errMsg = err?.message || "";
       if (errMsg.includes("Failed to fetch")) {
-        showToast("Conexão interrompida. Se o PDF for muito pesado (escaneado), aguarde alguns segundos e tente enviar novamente.", "error");
+        showToast("Conexão interrompida. Verifique sua conexão ou se a chave GEMINI_API_KEY está configurada no painel do Vercel.", "error");
       } else {
         showToast("Falha na extração: " + errMsg, "error");
       }

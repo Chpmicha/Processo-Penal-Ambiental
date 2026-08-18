@@ -111,34 +111,14 @@ app.get("/api/sample-data", (req, res) => {
   res.json({ status: "ok", data: DEFAULT_EMPTY_DATA });
 });
 
-// API Endpoint 2: Extract tags from uploaded PDFs using Gemini AI
-app.post("/api/extract", (req, res, next) => {
-  // Set extended timeout for PDF processing & AI call (5 minutes)
-  req.setTimeout(300000);
-  res.setTimeout(300000);
-
-  upload.array("pdfs", 10)(req, res, (err) => {
-    if (err) {
-      console.error("[Multer Upload Error]:", err);
-      return res.status(400).json({ error: "Erro ao carregar o arquivo PDF: " + (err.message || "Arquivo inválido ou excede o limite de tamanho.") });
-    }
-    next();
-  });
-}, async (req, res) => {
+// Helper for Gemini Extraction Logic
+const executeGeminiExtraction = async (contentsParts: any[], res: express.Response) => {
   try {
-    const files = req.files as Express.Multer.File[];
-    if (!files || files.length === 0) {
-      return res.status(400).json({ error: "Nenhum arquivo PDF foi enviado." });
-    }
-
     if (!process.env.GEMINI_API_KEY) {
       console.error("GEMINI_API_KEY não definida no ambiente.");
       return res.status(500).json({ error: "Chave de API Gemini não configurada no servidor. Verifique as configurações de secrets." });
     }
 
-    const contentsParts: any[] = [];
-
-    // System instructions & prompt rules
     const systemPrompt = `
 Você é um especialista em processamento de documentos ambientais policiais e fiscais (BOTC - Boletim de Ocorrência / Termo Circunstanciado e PAFA / Relatório de Fiscalização).
 
@@ -180,48 +160,10 @@ Retorne APENAS o objeto JSON com exatamente essas 17 chaves:
 TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_FATO, HORA_FATO, ENDEREÇO, COORDENADAS_UTM, AGENTES_ATENDENTES, RESUMO_RELATORIO_FISCALIZACAO, PROCESSO_GAIA, PROCESSO_SGPE, TE_NUMERO, DESCRICAO_TE, BO_NUMERO, DATA_ATUAL.
 `;
 
-    // Process uploaded PDFs: extract text first to avoid sending huge base64 payloads
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      let extractedText = "";
-      try {
-        const parsed = await parsePdfBuffer(file.buffer);
-        if (parsed && parsed.text) {
-          // Remove page headers and compress blank lines to save token quota
-          const cleanText = parsed.text
-            .replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "")
-            .replace(/\r\n/g, "\n")
-            .replace(/\n{3,}/g, "\n\n")
-            .trim();
-          if (cleanText.length > 10) {
-            extractedText = cleanText;
-          }
-        }
-      } catch (err) {
-        console.warn(`[pdf-parse] Não foi possível extrair texto puro do arquivo ${file.originalname}:`, err);
-      }
-
-      if (extractedText) {
-        console.log(`[PDF] Texto extraído com sucesso de ${file.originalname} (${extractedText.length} caracteres).`);
-        contentsParts.push({
-          text: `\n=== CONTEÚDO DO DOCUMENTO PDF #${i + 1} (${file.originalname}) ===\n${extractedText}\n`
-        });
-      } else {
-        console.log(`[PDF] PDF escaneado/imagem em ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)} MB), enviando como dados binários.`);
-        contentsParts.push({
-          inlineData: {
-            mimeType: "application/pdf",
-            data: file.buffer.toString("base64"),
-          },
-        });
-      }
-    }
-
     contentsParts.push({
       text: systemPrompt,
     });
 
-    // Models to try in order of availability, speed and separate quotas
     const modelsToTry = [
       "gemini-3.6-flash",
       "gemini-3.7-flash",
@@ -230,6 +172,7 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
     ];
+
     const jsonSchema = {
       type: Type.OBJECT,
       properties: {
@@ -272,7 +215,6 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
       ],
     };
 
-    // Helper for generating content with resilient fallback across models in case of 503 high demand or 429 rate limit
     const callGeminiWithRetry = async (): Promise<any> => {
       let lastError: any = null;
       for (const modelName of modelsToTry) {
@@ -301,7 +243,7 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
             
             if (isDemandSpike || isRateLimit) {
               console.log(`[Gemini API] Modelo ${modelName} retornou ${isRateLimit ? "Limite de Requisições/Quota (429)" : "Alta Demanda (503)"}. Alternando para próximo modelo...`);
-              break; // Immediately move to next fallback model to avoid blocking
+              break;
             } else {
               console.log(`[Gemini API] Tentativa ${attempt} com ${modelName} falhou: ${err?.message || err}.`);
               if (attempt < 2) {
@@ -332,12 +274,10 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
 
     const extractedData = JSON.parse(cleanJson);
 
-    // Normalize TIPO_DOCUMENTO to ensure CIRCUNSTANCIADO without accent
     if (extractedData.TIPO_DOCUMENTO && extractedData.TIPO_DOCUMENTO.toUpperCase().includes("CIRCUNST")) {
       extractedData.TIPO_DOCUMENTO = "TERMO CIRCUNSTANCIADO";
     }
 
-    // Always override DATA_ATUAL with today's real current date in Portuguese
     const now = new Date();
     const formattedToday = now.toLocaleDateString("pt-BR", {
       day: "numeric",
@@ -360,6 +300,114 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
     return res.status(500).json({
       error: userMsg,
     });
+  }
+};
+
+// API Endpoint 2A: Ultra-lightweight JSON text extract (Bypasses Vercel 4.5MB 413 limit)
+app.post("/api/extract-text", async (req, res) => {
+  try {
+    const { text, documents } = req.body;
+    if (!text && (!documents || documents.length === 0)) {
+      return res.status(400).json({ error: "Nenhum texto de documento foi fornecido." });
+    }
+
+    const contentsParts: any[] = [];
+    if (Array.isArray(documents) && documents.length > 0) {
+      documents.forEach((doc: { name?: string; text: string }, idx: number) => {
+        contentsParts.push({
+          text: `\n=== CONTEÚDO DO DOCUMENTO PDF #${idx + 1} (${doc.name || "Documento"}) ===\n${doc.text}\n`,
+        });
+      });
+    } else if (text) {
+      contentsParts.push({
+        text: `\n=== CONTEÚDO DOS DOCUMENTOS PDF ===\n${text}\n`,
+      });
+    }
+
+    return await executeGeminiExtraction(contentsParts, res);
+  } catch (err: any) {
+    return res.status(500).json({ error: "Erro ao processar texto: " + (err?.message || err) });
+  }
+});
+
+// API Endpoint 2B: Multipart extract fallback
+app.post("/api/extract", (req, res, next) => {
+  if (req.is("application/json") || req.body?.text) {
+    return next();
+  }
+  req.setTimeout(300000);
+  res.setTimeout(300000);
+
+  upload.array("pdfs", 10)(req, res, (err) => {
+    if (err) {
+      console.error("[Multer Upload Error]:", err);
+      return res.status(400).json({ error: "Erro ao carregar o arquivo PDF: " + (err.message || "Arquivo inválido ou excede o limite de tamanho.") });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (req.body && (req.body.text || req.body.documents)) {
+      const { text, documents } = req.body;
+      const contentsParts: any[] = [];
+      if (Array.isArray(documents) && documents.length > 0) {
+        documents.forEach((doc: { name?: string; text: string }, idx: number) => {
+          contentsParts.push({
+            text: `\n=== CONTEÚDO DO DOCUMENTO PDF #${idx + 1} (${doc.name || "Documento"}) ===\n${doc.text}\n`,
+          });
+        });
+      } else if (text) {
+        contentsParts.push({
+          text: `\n=== CONTEÚDO DOS DOCUMENTOS PDF ===\n${text}\n`,
+        });
+      }
+      return await executeGeminiExtraction(contentsParts, res);
+    }
+
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "Nenhum arquivo PDF foi enviado." });
+    }
+
+    const contentsParts: any[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      let extractedText = "";
+      try {
+        const parsed = await parsePdfBuffer(file.buffer);
+        if (parsed && parsed.text) {
+          const cleanText = parsed.text
+            .replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "")
+            .replace(/\r\n/g, "\n")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+          if (cleanText.length > 10) {
+            extractedText = cleanText;
+          }
+        }
+      } catch (err) {
+        console.warn(`[pdf-parse] Não foi possível extrair texto puro do arquivo ${file.originalname}:`, err);
+      }
+
+      if (extractedText) {
+        contentsParts.push({
+          text: `\n=== CONTEÚDO DO DOCUMENTO PDF #${i + 1} (${file.originalname}) ===\n${extractedText}\n`
+        });
+      } else {
+        contentsParts.push({
+          inlineData: {
+            mimeType: "application/pdf",
+            data: file.buffer.toString("base64"),
+          },
+        });
+      }
+    }
+
+    return await executeGeminiExtraction(contentsParts, res);
+  } catch (error: any) {
+    console.error("Erro na rota /api/extract:", error);
+    return res.status(500).json({ error: error?.message || "Erro ao processar extração." });
   }
 });
 
