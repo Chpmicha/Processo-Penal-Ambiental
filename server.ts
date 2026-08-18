@@ -4,9 +4,7 @@ import fs from "fs";
 import multer from "multer";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
-import PDFDocument from "pdfkit";
 import { GoogleGenAI, Type } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { createRequire } from "module";
 
@@ -69,19 +67,29 @@ const upload = multer({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+// Lazy initializer for Gemini Client to handle any environment variable naming and missing key gracefully
+const getAiClient = () => {
+  const apiKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    process.env.API_KEY;
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      "User-Agent": "aistudio-build",
+  if (!apiKey || apiKey.trim().length === 0) {
+    throw new Error(
+      "A chave GEMINI_API_KEY não foi configurada nas variáveis de ambiente. Verifique o painel de variáveis da Vercel ou o arquivo .env."
+    );
+  }
+
+  return new GoogleGenAI({
+    apiKey: apiKey.trim(),
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
+      },
     },
-  },
-});
+  });
+};
 
 // Empty default structure
 const DEFAULT_EMPTY_DATA = {
@@ -114,10 +122,7 @@ app.get("/api/sample-data", (req, res) => {
 // Helper for Gemini Extraction Logic
 const executeGeminiExtraction = async (contentsParts: any[], res: express.Response) => {
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY não definida no ambiente.");
-      return res.status(500).json({ error: "Chave de API Gemini não configurada no servidor. Verifique as configurações de secrets." });
-    }
+    const ai = getAiClient();
 
     const systemPrompt = `
 Você é um especialista em processamento de documentos ambientais policiais e fiscais (BOTC - Boletim de Ocorrência / Termo Circunstanciado e PAFA / Relatório de Fiscalização).
@@ -165,12 +170,10 @@ TIPO_DOCUMENTO, NOME_INFRATOR, LEI_ENQUADRAMENTO, AIA_NUMERO, NUMERO_SADE, DATA_
     });
 
     const modelsToTry = [
-      "gemini-3.6-flash",
-      "gemini-3.7-flash",
-      "gemini-3.1-flash-lite",
-      "gemini-flash-latest",
       "gemini-2.5-flash",
-      "gemini-2.5-flash-lite",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-2.5-pro",
     ];
 
     const jsonSchema = {
@@ -835,227 +838,6 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
   return zip.generate({ type: "nodebuffer" });
 }
 
-function createDefaultPdfBuffer(data: Record<string, string>): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({
-        size: "A4",
-        autoFirstPage: true,
-        margins: { top: 24, bottom: 24, left: 38, right: 38 },
-        info: {
-          Title: `Notificação - ${data.NOME_INFRATOR || "Processo"}`,
-          Author: "2º BPMA - PMSC",
-        },
-      });
-
-      const chunks: Buffer[] = [];
-      doc.on("data", (chunk) => chunks.push(chunk));
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", (err) => reject(err));
-
-      const printableWidth = 595.28 - 76; // 519.28 pt
-
-      // 1. Header layout (Text only)
-      const startY = 24;
-
-      doc.font("Helvetica-Bold").fontSize(7).fillColor("#64748b").text("POLÍCIA MILITAR DE SANTA CATARINA", 38, startY);
-      doc.font("Helvetica-Bold").fontSize(10.5).fillColor("#0f172a").text("2º Batalhão de Polícia Militar Ambiental", 38, startY + 10);
-      doc.font("Helvetica").fontSize(7.5).fillColor("#475569").text("Avenida Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000", 38, startY + 23);
-      doc.text("Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br", 38, startY + 33);
-
-      // Header Divider line
-      doc.strokeColor("#e2e8f0").lineWidth(0.8).moveTo(38, startY + 48).lineTo(595.28 - 38, startY + 48).stroke();
-
-      // 2. Document Title (3 linhas antes e 3 linhas depois)
-      const titleY = startY + 48 + 26;
-      const docTitle = data.TIPO_DOCUMENTO || "NOTIFICAÇÃO DE INFRAÇÃO PENAL AMBIENTAL";
-      doc.font("Helvetica-Bold").fontSize(9.5).fillColor("#0f172a").text(docTitle, 38, titleY, {
-        align: "center",
-        underline: true,
-        width: printableWidth,
-      });
-
-      // 3. Metadata 3-Column Row (3 linhas após o título)
-      const metaY = titleY + 14 + 26;
-      const col1X = 38;
-      const col1W = 155;
-      const col2X = col1X + col1W + 10;
-      const col2W = 195;
-      const col3X = col2X + col2W + 10;
-      const col3W = printableWidth - (col1W + col2W + 20);
-
-      // Col 1: Autor dos Fatos
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Autor dos Fatos: ", col1X, metaY, {
-        continued: true,
-        width: col1W,
-      });
-      doc.font("Helvetica-Bold").fillColor("#0f172a").text(data.NOME_INFRATOR || "Não informado", {
-        width: col1W,
-      });
-      const col1Bottom = doc.y;
-
-      // Col 2: Tipificação Penal
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Tipificação Penal: ", col2X, metaY, {
-        continued: true,
-        width: col2W,
-      });
-      doc.font("Helvetica").fillColor("#0f172a").text(data.LEI_ENQUADRAMENTO || "Não informado", {
-        width: col2W,
-      });
-      const col2Bottom = doc.y;
-
-      // Col 3: Auto de Infração Ambiental
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text("Auto de Infração: ", col3X, metaY, {
-        continued: true,
-        width: col3W,
-      });
-      doc.font("Helvetica").fillColor("#0f172a").text(`AIA n. ${data.AIA_NUMERO || "---"}`, {
-        width: col3W,
-      });
-      const col3Bottom = doc.y;
-
-      // 4. Highlight Box (Origem, Data/Hora, Local, Coordenadas, Atendentes)
-      const maxMetaBottom = Math.max(col1Bottom, col2Bottom, col3Bottom);
-      const boxY = Math.max(metaY + 14, maxMetaBottom + 6);
-      const boxHeight = 60;
-      doc.roundedRect(38, boxY, printableWidth, boxHeight, 4).fillAndStroke("#f8fafc", "#cbd5e1");
-
-      // Red Info Badge
-      doc.circle(49, boxY + 12, 5.5).fill("#dc2626");
-      doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#ffffff").text("i", 47.5, boxY + 8.5);
-
-      doc.fillColor("#1e293b").fontSize(7);
-      const lineSpacing = 10.5;
-      let textY = boxY + 5.5;
-      const textIndent = 60;
-
-      doc.font("Helvetica-Bold").text("Origem: ", textIndent, textY, { continued: true });
-      doc.font("Helvetica").text(data.NUMERO_SADE || "Não informado");
-
-      textY += lineSpacing;
-      doc.font("Helvetica-Bold").text("Data/Hora dos Fatos: ", textIndent, textY, { continued: true });
-      doc.font("Helvetica").text(`${data.DATA_FATO || "Não informado"} às ${data.HORA_FATO || ""}`);
-
-      textY += lineSpacing;
-      doc.font("Helvetica-Bold").text("Local: ", textIndent, textY, { continued: true });
-      doc.font("Helvetica").text(data.ENDEREÇO || "Não informado");
-
-      textY += lineSpacing;
-      doc.font("Helvetica-Bold").text("Coordenada: ", textIndent, textY, { continued: true });
-      doc.font("Helvetica").text(data.COORDENADAS_UTM || "Não informado");
-
-      textY += lineSpacing;
-      doc.font("Helvetica-Bold").text("Atendentes: ", textIndent, textY, { continued: true });
-      doc.font("Helvetica").text(data.AGENTES_ATENDENTES || "Não informado");
-
-      let currentY = boxY + boxHeight + 20;
-
-      // 5. SÍNTESE DOS FATOS E MATERIALIDADE (2 linhas antes do título)
-      doc.font("Helvetica-Bold").fontSize(8).fillColor("#0f172a").text("SÍNTESE DOS FATOS E MATERIALIDADE", 38, currentY);
-      currentY = doc.y + 4;
-
-      const resumo = data.RESUMO_RELATORIO_FISCALIZACAO || "Não informado";
-      doc.font("Helvetica").fontSize(7.5).fillColor("#1e293b").text(resumo, 38, currentY, {
-        align: "justify",
-        width: printableWidth,
-        lineGap: 2.0,
-      });
-
-      // 2 linhas de espaço após o parágrafo antes do próximo título
-      currentY = doc.y + 20;
-
-      // 6. PROVIDÊNCIAS ADMINISTRATIVAS (2 linhas antes do título)
-      doc.font("Helvetica-Bold").fontSize(8).fillColor("#0f172a").text("PROVIDÊNCIAS ADMINISTRATIVAS", 38, currentY);
-      currentY = doc.y + 4;
-
-      const providencias = `Em decorrência dos fatos, visando individualizar a autoria e impedir a continuidade das intervenções irregulares para evitar o agravamento do dano, foram adotadas as seguintes medidas, já inseridas no sistema GAIA sob o Processo n. ${data.PROCESSO_GAIA || "---"} (Processo PMSC ${data.PROCESSO_SGPE || "---"}):`;
-      doc.font("Helvetica").fontSize(7.5).fillColor("#1e293b").text(providencias, 38, currentY, {
-        align: "justify",
-        width: printableWidth,
-        lineGap: 2.0,
-      });
-
-      currentY = doc.y + 3.5;
-      doc.font("Helvetica-Bold").fontSize(7.5).text("• Auto de Infração Ambiental: ", 48, currentY, { continued: true });
-      doc.font("Helvetica").text(data.AIA_NUMERO || "---");
-
-      currentY = doc.y + 2.5;
-      doc.font("Helvetica-Bold").fontSize(7.5).text("• Embargo/Suspensão: ", 48, currentY, { continued: true });
-      doc.font("Helvetica").text(`${data.TE_NUMERO || "---"} (${data.DESCRICAO_TE || "---"})`);
-
-      // 2 linhas de espaço após o parágrafo/itens antes do próximo título
-      currentY = doc.y + 20;
-
-      // 7. ANEXOS (2 linhas antes do título)
-      doc.font("Helvetica-Bold").fontSize(8).fillColor("#0f172a").text("ANEXOS", 38, currentY);
-      currentY = doc.y + 4;
-
-      doc.font("Helvetica").fontSize(7.5).fillColor("#1e293b").text("Diante do exposto, encaminho o presente procedimento à Vossa Excelência, instruído com as seguintes peças:", 38, currentY, {
-        width: printableWidth,
-        lineGap: 1.5,
-      });
-
-      currentY = doc.y + 3;
-      let anexos: string[] = [];
-      if (data.ANEXOS_LISTA && data.ANEXOS_LISTA.trim().length > 0) {
-        anexos = data.ANEXOS_LISTA.split("\n").map(s => s.trim()).filter(s => s.length > 0);
-      } else {
-        anexos = [
-          `1. Boletim de Ocorrência nº ${data.BO_NUMERO || "---"};`,
-          `2. Auto de Infração Ambiental n. ${data.AIA_NUMERO || "---"};`,
-          `3. Termo de Embargo/Suspensão n. ${data.TE_NUMERO || "---"};`,
-          `4. Relatório de Fiscalização;`,
-          `5. Relatório fotográfico, mapas e listas de coordenadas;`,
-          `6. Cópias dos documentos pessoais, contrato social e registro do imóvel rural.`,
-        ];
-      }
-
-      anexos.forEach((anexo) => {
-        doc.font("Helvetica").fontSize(7.3).fillColor("#1e293b").text(anexo, 48, currentY, { width: printableWidth - 10 });
-        currentY = doc.y + 2;
-      });
-
-      // 3 linhas de espaço antes da cidade e da data
-      currentY = doc.y + 30;
-
-      // 8. Data e Assinatura
-      doc.font("Helvetica").fontSize(8).fillColor("#1e293b").text(`Chapecó, ${data.DATA_ATUAL || ""}.`, 38, currentY, {
-        align: "center",
-        width: printableWidth,
-      });
-
-      // 3 linhas de espaço após a cidade e da data antes da autoridade
-      currentY = doc.y + 30;
-      const nomeAutoridade = data.AUTORIDADE_NOME || "Andréia Cristina Fergitz";
-      const cargoAutoridade = data.AUTORIDADE_CARGO || "Tenente Coronel PM - Comandante do 2ºBPMA";
-
-      doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#0f172a").text(nomeAutoridade, 38, currentY, {
-        align: "center",
-        width: printableWidth,
-      });
-      currentY = doc.y + 2;
-      doc.font("Helvetica").fontSize(7.5).fillColor("#334155").text(cargoAutoridade, 38, currentY, {
-        align: "center",
-        width: printableWidth,
-      });
-      currentY = doc.y + 1.5;
-      doc.font("Helvetica").fontSize(7).fillColor("#475569").text("Autoridade Ambiental Fiscalizadora", 38, currentY, {
-        align: "center",
-        width: printableWidth,
-      });
-      currentY = doc.y + 1.5;
-      doc.font("Helvetica-Oblique").fontSize(6.5).fillColor("#64748b").text("(Documento assinado eletronicamente)", 38, currentY, {
-        align: "center",
-        width: printableWidth,
-      });
-
-      doc.end();
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
 // API Endpoint 3: Generate filled DOCX file
 app.post("/api/generate-docx", async (req, res) => {
   try {
@@ -1073,24 +855,6 @@ app.post("/api/generate-docx", async (req, res) => {
   } catch (err: any) {
     console.error("Erro ao gerar DOCX:", err);
     return res.status(500).json({ error: "Erro ao gerar arquivo .docx: " + (err?.message || "Erro desconhecido") });
-  }
-});
-
-// API Endpoint: Generate filled PDF file
-app.post("/api/generate-pdf", async (req, res) => {
-  try {
-    const rawData = req.body.data;
-    const tagData: Record<string, string> = typeof rawData === "string" ? JSON.parse(rawData) : (rawData || DEFAULT_EMPTY_DATA);
-
-    const outputBuffer = await createDefaultPdfBuffer(tagData);
-    const filename = `Notificacao_${(tagData.NOME_INFRATOR || "Infrator").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.send(outputBuffer);
-  } catch (err: any) {
-    console.error("Erro ao gerar PDF:", err);
-    return res.status(500).json({ error: "Erro ao gerar arquivo .pdf: " + (err?.message || "Erro desconhecido") });
   }
 });
 
@@ -1219,6 +983,7 @@ if __name__ == "__main__":
 // Vite Development Server Setup
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

@@ -90,11 +90,18 @@ export default function App() {
       }
 
       let result: any = null;
+      const responseText = await response.text();
       try {
-        result = await response.json();
+        result = JSON.parse(responseText);
       } catch {
         if (response.status === 413) {
           throw new Error("Tamanho dos arquivos excede o limite serverless. Tente carregar PDFs com texto selecionável ou com menos páginas com fotos.");
+        }
+        if (responseText && responseText.length > 0 && responseText.length < 300 && !responseText.includes("<!DOCTYPE")) {
+          throw new Error(`Erro do servidor (${response.status}): ${responseText}`);
+        }
+        if (response.status === 500) {
+          throw new Error("Erro no servidor (500). Verifique se a variável GEMINI_API_KEY foi adicionada no painel do Vercel (Settings > Environment Variables) e se um novo Deploy foi realizado.");
         }
         throw new Error(`Servidor inacessível ou tempo limite excedido (código ${response.status}).`);
       }
