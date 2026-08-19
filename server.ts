@@ -364,10 +364,19 @@ function replaceDocxXmlPlaceholders(xmlString: string, data: Record<string, stri
   }
 
   if (!dict.AUTORIDADE_NOME) {
-    dict.AUTORIDADE_NOME = "Andréia Cristina Fergitz";
+    dict.AUTORIDADE_NOME = "Guilherme Wildner Wolf";
   }
   if (!dict.AUTORIDADE_CARGO) {
-    dict.AUTORIDADE_CARGO = "Tenente Coronel PM - Comandante do 2ºBPMA";
+    dict.AUTORIDADE_CARGO = "Capitão PM - Comandante da 1ª Cia do 2º BPMA";
+  }
+  if (!dict.UNIDADE_ENDERECO) {
+    dict.UNIDADE_ENDERECO = "Av. Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000";
+  }
+  if (!dict.UNIDADE_CONTATO) {
+    dict.UNIDADE_CONTATO = "Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br";
+  }
+  if (!dict.CIDADE_FECHO) {
+    dict.CIDADE_FECHO = "Chapecó";
   }
 
   // Always ensure current date is present if DATA_ATUAL is missing or default
@@ -458,7 +467,7 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
                 <w:sz w:val="18"/>
                 <w:color w:val="475569"/>
               </w:rPr>
-              <w:t>Avenida Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000</w:t>
+              <w:t>{{ UNIDADE_ENDERECO }}</w:t>
             </w:r>
           </w:p>
           <w:p>
@@ -468,7 +477,7 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
                 <w:sz w:val="18"/>
                 <w:color w:val="475569"/>
               </w:rPr>
-              <w:t>Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br</w:t>
+              <w:t>{{ UNIDADE_CONTATO }}</w:t>
             </w:r>
           </w:p>
         </w:tc>
@@ -701,18 +710,10 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
 
     <!-- Signature Block (3 linhas antes e 3 linhas depois da data) -->
     <w:p>
-      <w:pPr><w:spacing w:before="720" w:after="720"/></w:pPr>
+      <w:pPr><w:jc w:val="center"/><w:spacing w:before="720" w:after="720"/></w:pPr>
       <w:r>
         <w:rPr><w:sz w:val="21"/><w:color w:val="1E293B"/></w:rPr>
-        <w:t xml:space="preserve">Chapecó, </w:t>
-      </w:r>
-      <w:r>
-        <w:rPr><w:sz w:val="21"/><w:color w:val="1E293B"/></w:rPr>
-        <w:t>{{ DATA_ATUAL }}</w:t>
-      </w:r>
-      <w:r>
-        <w:rPr><w:sz w:val="21"/><w:color w:val="1E293B"/></w:rPr>
-        <w:t>.</w:t>
+        <w:t>{{ CIDADE_FECHO }}, {{ DATA_ATUAL }}.</w:t>
       </w:r>
     </w:p>
     <w:p>

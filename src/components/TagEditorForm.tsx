@@ -330,7 +330,20 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
           />
         </div>
 
-        <div className="space-y-1 md:col-span-2">
+        <div className="space-y-1">
+          <label className="text-slate-700 font-bold flex items-center justify-between">
+            <span>&#123;&#123; CIDADE_FECHO &#125;&#125;</span>
+            <span className="text-[10px] text-slate-500 font-normal">Município do Fecho</span>
+          </label>
+          <input
+            type="text"
+            value={data.CIDADE_FECHO ?? "Chapecó"}
+            onChange={(e) => handleChange("CIDADE_FECHO", e.target.value)}
+            className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-medium focus:bg-white focus:border-blue-600 focus:outline-none"
+          />
+        </div>
+
+        <div className="space-y-1">
           <label className="text-slate-700 font-bold flex items-center justify-between">
             <span>&#123;&#123; DATA_ATUAL &#125;&#125;</span>
             <span className="text-[10px] text-slate-500 font-normal">Data Extenso</span>
@@ -343,19 +356,22 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
           />
         </div>
 
-        {/* Autoridade Signatária */}
-        <div className="md:col-span-2 mt-3 pt-3 border-t border-slate-200 bg-slate-50/70 p-3 rounded-lg border border-slate-200">
-          <div className="flex items-center justify-between mb-2">
+        {/* Autoridade Signatária e Unidade */}
+        <div className="md:col-span-2 mt-3 pt-3 border-t border-slate-200 bg-slate-50/70 p-3 rounded-lg border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              <span>✍️</span> Autoridade Signatária / Comando
+              <span>✍️</span> Autoridade Signatária &amp; Dados da Unidade
             </h4>
             <button
               type="button"
               onClick={() => {
                 onChange({
                   ...data,
-                  AUTORIDADE_NOME: "Andréia Cristina Fergitz",
-                  AUTORIDADE_CARGO: "Tenente Coronel PM - Comandante do 2ºBPMA",
+                  AUTORIDADE_NOME: "Guilherme Wildner Wolf",
+                  AUTORIDADE_CARGO: "Capitão PM - Comandante da 1ª Cia do 2º BPMA",
+                  UNIDADE_ENDERECO: "Av. Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000",
+                  UNIDADE_CONTATO: "Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br",
+                  CIDADE_FECHO: "Chapecó",
                 });
               }}
               className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded border border-blue-200 transition-colors cursor-pointer"
@@ -370,9 +386,9 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
               </label>
               <input
                 type="text"
-                value={data.AUTORIDADE_NOME ?? "Andréia Cristina Fergitz"}
+                value={data.AUTORIDADE_NOME ?? "Guilherme Wildner Wolf"}
                 onChange={(e) => handleChange("AUTORIDADE_NOME", e.target.value)}
-                placeholder="Andréia Cristina Fergitz"
+                placeholder="Guilherme Wildner Wolf"
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-bold focus:border-blue-600 focus:outline-none"
               />
             </div>
@@ -382,9 +398,31 @@ export const TagEditorForm: React.FC<TagEditorFormProps> = ({
               </label>
               <input
                 type="text"
-                value={data.AUTORIDADE_CARGO ?? "Tenente Coronel PM - Comandante do 2ºBPMA"}
+                value={data.AUTORIDADE_CARGO ?? "Capitão PM - Comandante da 1ª Cia do 2º BPMA"}
                 onChange={(e) => handleChange("AUTORIDADE_CARGO", e.target.value)}
-                placeholder="Tenente Coronel PM - Comandante do 2ºBPMA"
+                placeholder="Capitão PM - Comandante da 1ª Cia do 2º BPMA"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-medium focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-700">
+                Endereço da Unidade
+              </label>
+              <input
+                type="text"
+                value={data.UNIDADE_ENDERECO ?? "Av. Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000"}
+                onChange={(e) => handleChange("UNIDADE_ENDERECO", e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-medium focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-700">
+                Contato da Unidade (Telefone / E-mail)
+              </label>
+              <input
+                type="text"
+                value={data.UNIDADE_CONTATO ?? "Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br"}
+                onChange={(e) => handleChange("UNIDADE_CONTATO", e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-medium focus:border-blue-600 focus:outline-none"
               />
             </div>

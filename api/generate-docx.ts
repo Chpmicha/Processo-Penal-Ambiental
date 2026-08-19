@@ -18,8 +18,12 @@ const DEFAULT_EMPTY_DATA = {
   DESCRICAO_TE: "",
   BO_NUMERO: "",
   DATA_ATUAL: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
-  AUTORIDADE_NOME: "Andréia Cristina Fergitz",
-  AUTORIDADE_CARGO: "Tenente Coronel PM - Comandante do 2ºBPMA"
+  AUTORIDADE_NOME: "Guilherme Wildner Wolf",
+  AUTORIDADE_CARGO: "Capitão PM - Comandante da 1ª Cia do 2º BPMA",
+  UNIDADE_NOME: "2º Batalhão de Polícia Militar Ambiental",
+  UNIDADE_ENDERECO: "Av. Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000",
+  UNIDADE_CONTATO: "Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br",
+  CIDADE_FECHO: "Chapecó"
 };
 
 function replaceDocxXmlPlaceholders(xmlString: string, data: Record<string, string>): string {
@@ -30,8 +34,11 @@ function replaceDocxXmlPlaceholders(xmlString: string, data: Record<string, stri
   if (dict.TIPO_DOCUMENTO && dict.TIPO_DOCUMENTO.toUpperCase().includes("CIRCUNST")) {
     dict.TIPO_DOCUMENTO = "TERMO CIRCUNSTANCIADO";
   }
-  if (!dict.AUTORIDADE_NOME) dict.AUTORIDADE_NOME = "Andréia Cristina Fergitz";
-  if (!dict.AUTORIDADE_CARGO) dict.AUTORIDADE_CARGO = "Tenente Coronel PM - Comandante do 2ºBPMA";
+  if (!dict.AUTORIDADE_NOME) dict.AUTORIDADE_NOME = "Guilherme Wildner Wolf";
+  if (!dict.AUTORIDADE_CARGO) dict.AUTORIDADE_CARGO = "Capitão PM - Comandante da 1ª Cia do 2º BPMA";
+  if (!dict.UNIDADE_ENDERECO) dict.UNIDADE_ENDERECO = "Av. Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000";
+  if (!dict.UNIDADE_CONTATO) dict.UNIDADE_CONTATO = "Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br";
+  if (!dict.CIDADE_FECHO) dict.CIDADE_FECHO = "Chapecó";
   if (!dict.DATA_ATUAL || dict.DATA_ATUAL.includes("MODELO")) {
     const now = new Date();
     dict.DATA_ATUAL = now.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
@@ -112,11 +119,11 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
     </w:p>
     <w:p>
       <w:pPr><w:jc w:val="left"/><w:spacing w:after="40"/></w:pPr>
-      <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>Avenida Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000</w:t></w:r>
+      <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>{{ UNIDADE_ENDERECO }}</w:t></w:r>
     </w:p>
     <w:p>
       <w:pPr><w:jc w:val="left"/><w:spacing w:after="240"/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="8" w:color="E2E8F0"/></w:pBdr></w:pPr>
-      <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br</w:t></w:r>
+      <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>{{ UNIDADE_CONTATO }}</w:t></w:r>
     </w:p>
 
     <w:p>
@@ -209,7 +216,7 @@ function createDefaultDocxBuffer(data: Record<string, string>): Buffer {
 
     <w:p>
       <w:pPr><w:jc w:val="center"/><w:spacing w:before="360" w:after="360"/></w:pPr>
-      <w:r><w:rPr><w:sz w:val="21"/><w:color w:val="1E293B"/></w:rPr><w:t>Chapecó, {{ DATA_ATUAL }}.</w:t></w:r>
+      <w:r><w:rPr><w:sz w:val="21"/><w:color w:val="1E293B"/></w:rPr><w:t>{{ CIDADE_FECHO }}, {{ DATA_ATUAL }}.</w:t></w:r>
     </w:p>
 
     <w:p>

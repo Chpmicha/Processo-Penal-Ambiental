@@ -105,11 +105,16 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
           <h1 className="text-sm font-extrabold uppercase tracking-wide text-slate-900 mt-0.5">
             2º Batalhão de Polícia Militar Ambiental
           </h1>
+          {data.UNIDADE_NOME && data.UNIDADE_NOME !== "2º Batalhão de Polícia Militar Ambiental" && (
+            <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wider mt-0.5">
+              {data.UNIDADE_NOME}
+            </p>
+          )}
           <p className="text-[10.5px] text-slate-600 font-medium mt-0.5">
-            Avenida Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000
+            {data.UNIDADE_ENDERECO || "Av. Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000"}
           </p>
           <p className="text-[10px] text-slate-600">
-            Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br
+            {data.UNIDADE_CONTATO || "Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br"}
           </p>
         </div>
 
@@ -225,15 +230,15 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data }) => {
         {/* Signature Block (3 linhas antes e 3 linhas depois da data) */}
         <div className="mt-8 pt-2 text-center text-[10.5px]">
           <p className="text-slate-800 font-medium mb-8">
-            Chapecó, {data.DATA_ATUAL || "{{ DATA_ATUAL }}"}.
+            {data.CIDADE_FECHO || "Chapecó"}, {data.DATA_ATUAL || "{{ DATA_ATUAL }}"}.
           </p>
 
           <div className="inline-block px-4">
             <p className="font-bold text-slate-900 text-[11px]">
-              {data.AUTORIDADE_NOME || "Andréia Cristina Fergitz"}
+              {data.AUTORIDADE_NOME || "Guilherme Wildner Wolf"}
             </p>
             <p className="text-slate-700 font-medium text-[10.5px]">
-              {data.AUTORIDADE_CARGO || "Tenente Coronel PM - Comandante do 2ºBPMA"}
+              {data.AUTORIDADE_CARGO || "Capitão PM - Comandante da 1ª Cia do 2º BPMA"}
             </p>
             <p className="text-slate-600 text-[9.5px]">Autoridade Ambiental Fiscalizadora</p>
             <p className="text-[9px] text-slate-500 italic mt-0.5">

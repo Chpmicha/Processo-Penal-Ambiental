@@ -4,11 +4,14 @@ import { PdfUploader } from "./components/PdfUploader";
 import { TagEditorForm } from "./components/TagEditorForm";
 import { DocumentPreview } from "./components/DocumentPreview";
 import { PythonScriptModal } from "./components/PythonScriptModal";
-import { ExtractedData } from "./types";
+import { ExtractedData, UNIDADES_2BPMA } from "./types";
 import { extractTextFromPdfFile } from "./utils/pdfExtractor";
+import { getUnitById, detectUnitByLocation, applyUnitToData } from "./utils/unitHelpers";
 import { CheckCircle, AlertCircle, UploadCloud, Edit3, FileText, Code2 } from "lucide-react";
 
-const INITIAL_DATA: ExtractedData = {
+const DEFAULT_UNIT = UNIDADES_2BPMA[0];
+
+const BASE_INITIAL_DATA: ExtractedData = {
   TIPO_DOCUMENTO: "NOTIFICAÇÃO DE INFRAÇÃO PENAL AMBIENTAL",
   NOME_INFRATOR: "",
   LEI_ENQUADRAMENTO: "",
@@ -26,12 +29,18 @@ const INITIAL_DATA: ExtractedData = {
   DESCRICAO_TE: "",
   BO_NUMERO: "",
   DATA_ATUAL: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
-  AUTORIDADE_NOME: "Andréia Cristina Fergitz",
-  AUTORIDADE_CARGO: "Tenente Coronel PM - Comandante do 2ºBPMA",
+  AUTORIDADE_NOME: DEFAULT_UNIT.autoridadeNome,
+  AUTORIDADE_CARGO: DEFAULT_UNIT.autoridadeCargo,
+  UNIDADE_ID: DEFAULT_UNIT.id,
+  UNIDADE_NOME: DEFAULT_UNIT.name,
+  UNIDADE_ENDERECO: DEFAULT_UNIT.endereco,
+  UNIDADE_CONTATO: DEFAULT_UNIT.contato,
+  CIDADE_FECHO: DEFAULT_UNIT.cidade,
 };
 
 export default function App() {
-  const [data, setData] = useState<ExtractedData>(INITIAL_DATA);
+  const [selectedUnitId, setSelectedUnitId] = useState<string>(DEFAULT_UNIT.id);
+  const [data, setData] = useState<ExtractedData>(BASE_INITIAL_DATA);
   const [selectedPdfs, setSelectedPdfs] = useState<File[]>([]);
   const [hasExtracted, setHasExtracted] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"tags" | "preview" | "python">("preview");
@@ -45,11 +54,23 @@ export default function App() {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  const handleUnitChange = (unitId: string) => {
+    setSelectedUnitId(unitId);
+    const unit = getUnitById(unitId);
+    setData((prev) => applyUnitToData(prev, unit));
+    showToast(`Unidade alterada para: ${unit.name}`);
+  };
+
   const handleReset = () => {
-    setData({
-      ...INITIAL_DATA,
-      DATA_ATUAL: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
-    });
+    const currentUnit = getUnitById(selectedUnitId);
+    const resetData = applyUnitToData(
+      {
+        ...BASE_INITIAL_DATA,
+        DATA_ATUAL: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
+      },
+      currentUnit
+    );
+    setData(resetData);
     setSelectedPdfs([]);
     setHasExtracted(false);
     showToast("Dados e anexos limpos com sucesso! Pronto para processar um novo caso.");
@@ -60,10 +81,12 @@ export default function App() {
     try {
       // 1. Extração de texto ultra-leve no navegador (elimina o erro 413 do Vercel)
       const extractedDocs: { name: string; text: string }[] = [];
+      let combinedText = "";
       for (const file of pdfFiles) {
         const text = await extractTextFromPdfFile(file);
         if (text && text.trim().length > 20) {
           extractedDocs.push({ name: file.name, text });
+          combinedText += " " + text;
         }
       }
 
@@ -107,9 +130,22 @@ export default function App() {
       }
 
       if (response.ok && result?.success && result?.data) {
-        setData(result.data);
+        let extracted = result.data as ExtractedData;
+
+        // Auto-detect unit if location text matches one of the 9 units, otherwise apply current unit
+        const locationText = (extracted.ENDEREÇO || "") + " " + (extracted.RESUMO_RELATORIO_FISCALIZACAO || "") + " " + combinedText;
+        const detectedUnit = detectUnitByLocation(locationText);
+        
+        let unitToApply = getUnitById(selectedUnitId);
+        if (detectedUnit && detectedUnit.id !== "chapeco") {
+          unitToApply = detectedUnit;
+          setSelectedUnitId(detectedUnit.id);
+        }
+
+        const finalData = applyUnitToData(extracted, unitToApply);
+        setData(finalData);
         setHasExtracted(true);
-        showToast("Dados extraídos com sucesso da análise dos PDFs com Gemini IA!");
+        showToast(`Dados extraídos com sucesso! Unidade aplicada: ${unitToApply.name}`);
       } else {
         throw new Error(result?.error || `Erro do servidor (${response.status}) ao processar os PDFs.`);
       }
@@ -204,10 +240,11 @@ export default function App() {
       {/* Main Header */}
       <Header
         onDownloadDocx={handleDownloadDocx}
-        onDownloadPython={() => setShowPythonModal(true)}
         onReset={handleReset}
         isGeneratingDocx={isGeneratingDocx}
         hasExtracted={hasExtracted}
+        selectedUnitId={selectedUnitId}
+        onUnitChange={handleUnitChange}
       />
 
       {/* Main Content Body */}

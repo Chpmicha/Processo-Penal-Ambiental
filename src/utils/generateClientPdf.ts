@@ -26,21 +26,29 @@ export function generateNotificationPdf(data: ExtractedData): void {
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
   doc.text("POLÍCIA MILITAR DE SANTA CATARINA", margin, y);
-  y += 4;
+  y += 3.8;
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10.5);
+  doc.setFontSize(10);
   doc.setTextColor(15, 23, 42);
   doc.text("2º Batalhão de Polícia Militar Ambiental", margin, y);
-  y += 4;
+  y += 3.8;
+
+  if (data.UNIDADE_NOME && data.UNIDADE_NOME !== "2º Batalhão de Polícia Militar Ambiental") {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.8);
+    doc.setTextColor(30, 64, 175);
+    doc.text(data.UNIDADE_NOME, margin, y);
+    y += 3.4;
+  }
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
-  doc.text("Avenida Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000", margin, y);
-  y += 3.5;
-  doc.text("Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br", margin, y);
-  y += 4;
+  doc.text(data.UNIDADE_ENDERECO || "Av. Fernando Machado, 1870-D, Chapecó-SC, CEP 89803-000", margin, y);
+  y += 3.2;
+  doc.text(data.UNIDADE_CONTATO || "Fone: (49) 3321-0180 | E-mail: 2bpmachapecop3@pm.sc.gov.br", margin, y);
+  y += 3.8;
 
   // Header separator line
   doc.setDrawColor(203, 213, 225);
@@ -226,11 +234,12 @@ export function generateNotificationPdf(data: ExtractedData): void {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.8);
   doc.setTextColor(30, 41, 59);
-  doc.text(`Chapecó, ${data.DATA_ATUAL || ""}.`, pageWidth / 2, y, { align: "center" });
+  const cidadeFecho = data.CIDADE_FECHO || "Chapecó";
+  doc.text(`${cidadeFecho}, ${data.DATA_ATUAL || ""}.`, pageWidth / 2, y, { align: "center" });
   y += 6.5;
 
-  const nomeAut = data.AUTORIDADE_NOME || "Andréia Cristina Fergitz";
-  const cargoAut = data.AUTORIDADE_CARGO || "Tenente Coronel PM - Comandante do 2ºBPMA";
+  const nomeAut = data.AUTORIDADE_NOME || "Guilherme Wildner Wolf";
+  const cargoAut = data.AUTORIDADE_CARGO || "Capitão PM - Comandante da 1ª Cia do 2º BPMA";
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.2);
