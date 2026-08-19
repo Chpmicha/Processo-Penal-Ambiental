@@ -3,11 +3,10 @@ import { Header } from "./components/Header";
 import { PdfUploader } from "./components/PdfUploader";
 import { TagEditorForm } from "./components/TagEditorForm";
 import { DocumentPreview } from "./components/DocumentPreview";
-import { PythonScriptModal } from "./components/PythonScriptModal";
 import { ExtractedData, UNIDADES_2BPMA } from "./types";
 import { extractTextFromPdfFile } from "./utils/pdfExtractor";
 import { getUnitById, detectUnitByLocation, applyUnitToData } from "./utils/unitHelpers";
-import { CheckCircle, AlertCircle, UploadCloud, Edit3, FileText, Code2 } from "lucide-react";
+import { CheckCircle, AlertCircle, Edit3, FileText } from "lucide-react";
 
 const DEFAULT_UNIT = UNIDADES_2BPMA[0];
 
@@ -43,10 +42,9 @@ export default function App() {
   const [data, setData] = useState<ExtractedData>(BASE_INITIAL_DATA);
   const [selectedPdfs, setSelectedPdfs] = useState<File[]>([]);
   const [hasExtracted, setHasExtracted] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"tags" | "preview" | "python">("preview");
+  const [activeTab, setActiveTab] = useState<"tags" | "preview">("preview");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGeneratingDocx, setIsGeneratingDocx] = useState(false);
-  const [showPythonModal, setShowPythonModal] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -195,28 +193,6 @@ export default function App() {
     }
   };
 
-  const handleDownloadPythonScript = async () => {
-    try {
-      const response = await fetch("/api/generate-python-script", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data }),
-      });
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `preencher_notificacao_${(data.NOME_INFRATOR || "processo").replace(/[^a-zA-Z0-9]/g, "_")}.py`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      showToast("Script Python (.py) baixado com sucesso!");
-    } catch (err: any) {
-      showToast("Erro ao baixar script Python: " + (err?.message || "Erro"), "error");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-sans antialiased">
       {/* Toast Notification */}
@@ -283,17 +259,6 @@ export default function App() {
               <Edit3 className="w-4 h-4" />
               <span>Painel de Tags &amp; Dados Extraídos</span>
             </button>
-            <button
-              onClick={() => setActiveTab("python")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "python"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              <Code2 className="w-4 h-4" />
-              <span>Código Python &amp; JSON</span>
-            </button>
           </div>
 
           <div className="text-[11px] font-semibold text-slate-500 hidden md:block">
@@ -318,27 +283,6 @@ export default function App() {
             <DocumentPreview data={data} />
           </div>
         )}
-
-        {activeTab === "python" && (
-          <div className="max-w-5xl mx-auto">
-            <PythonScriptModal data={data} onDownloadScript={handleDownloadPythonScript} />
-          </div>
-        )}
-
-        {/* Python Script Modal popup when triggered from header */}
-        {showPythonModal && (
-          <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl relative">
-              <button
-                onClick={() => setShowPythonModal(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm cursor-pointer"
-              >
-                ✕
-              </button>
-              <PythonScriptModal data={data} onDownloadScript={handleDownloadPythonScript} />
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Footer */}
@@ -348,6 +292,9 @@ export default function App() {
         </p>
         <p className="text-[11px] text-slate-500">
           Desenvolvido por 2º Sgt PM Michatowski - 928954@pm.sc.gov.br
+        </p>
+        <p className="text-[11px] text-slate-500">
+          Andréia Cristina Fergitz | Tenente-Coronel PM Comandante do 2º BPMA
         </p>
       </footer>
     </div>
